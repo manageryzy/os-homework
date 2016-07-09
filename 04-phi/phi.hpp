@@ -21,7 +21,7 @@ class World{
 public:
 	class Phi{
 	public:
-		Phi(int id,World & parent):id(id),w(parent){
+		Phi(int id,World * parent):id(id),w(parent){
 		}
 
 		void phi_thread(){
@@ -37,7 +37,7 @@ public:
 		}
 	private:
 		int id;
-		World & w;
+		World * w;
 
 		void eat(){
 			using namespace std;
@@ -46,21 +46,21 @@ public:
 
 		void take(){
 			using namespace std;
-			unique_lock<mutex> lock(w.cv_mutex);
+			unique_lock<mutex> lock(w->cv_mutex);
 
 			while(1){
-				w.take_folk_mutex.lock();
-				if(w.folk[w.getID(id-1)]==false &&
-						w.folk[w.getID(id+1)]==false){
+				w->take_folk_mutex.lock();
+				if(w->folk[w->getID(id-1)]==false &&
+						w->folk[w->getID(id+1)]==false){
 					//succeed take folk
-					w.folk[w.getID(id-1)]=true;
-					w.folk[w.getID(id+1)]=true;
-					w.take_folk_mutex.unlock();
+					w->folk[w->getID(id-1)]=true;
+					w->folk[w->getID(id+1)]=true;
+					w->take_folk_mutex.unlock();
 					return;
 				}else{
 					//wait
-					w.take_folk_mutex.unlock();
-					w.cv.wait(lock);
+					w->take_folk_mutex.unlock();
+					w->cv.wait(lock);
 				}
 			}
 
@@ -69,12 +69,12 @@ public:
 		void put(){
 			using namespace  std;
 
-			w.take_folk_mutex.lock();
-			w.folk[w.getID(id-1)]=false;
-			w.folk[w.getID(id+1)]=false;
-			w.take_folk_mutex.unlock();
+			w->take_folk_mutex.lock();
+			w->folk[w->getID(id-1)]=false;
+			w->folk[w->getID(id+1)]=false;
+			w->take_folk_mutex.unlock();
 
-			w.cv.notify_all();
+			w->cv.notify_all();
 		}
 	};
 protected:
@@ -87,7 +87,10 @@ protected:
 	int size;
 
 	int getID(int id){
-		return id % size;
+		int res = id % size;
+		if(res<0)
+			res+=size;
+		return res;
 	}
 
 public:
@@ -97,8 +100,8 @@ public:
 
 	void init(){
 		for(int i=0;i<size;i++){
-			phi[i] = Phi(i,*this);
-			folk[i] = false;
+			phi.push_back(Phi(i,this));
+			folk.push_back(false);
 		}
 	}
 
